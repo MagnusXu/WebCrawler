@@ -5,8 +5,6 @@ from json import loads, dumps
 from config import *
 import csv
 import datetime
-from time import sleep
-from random import randint
 
 def test_crawler():
 	import pandas as pd
@@ -17,14 +15,13 @@ def test_crawler():
 		'cookie': COOKIES[0],
 	}
     
-    http_proxy = "http://110.52.235.237:80"
-    https_proxy = "https://110.52.235.237:443"
-    ftp_proxy = "ftp://110.52.235.237:21"
-    proxy_dict = {
-            "http":http_proxy,
-            "https":https_proxy,
-            "ftp":ftp_proxy
-            }
+        http_proxy = ""
+        https_proxy = ""
+        ftp_proxy = ""
+    
+        proxy_dict = {
+            
+        }
 
 	fileHeader = ["full_address", 'house_number', 'street', 'unit_number', "sizeft", 'amenities', 'bedroom', 'bathroom']
 	
@@ -32,13 +29,10 @@ def test_crawler():
 	writer = csv.writer(csvFile)
 	writer.writerow(fileHeader)
 	df = pd.read_csv('./query_result.csv')
-	df['full_address'] = df['house_number'] + " " + df['street']
 	print(df.shape[0])
 	
-	for row_idx in range(2700):
+	for row_idx in range(342):
 		s = requests.session()
-        
-        sleep(randint(20, 40))
 		
 		row = df.iloc[row_idx]
 		if 'nan' in str(row['full_address']):
@@ -48,7 +42,7 @@ def test_crawler():
 			# get cookies
 			url = "https://www.cityrealty.com/"
 			headers['cookie'] = COOKIES[(row_idx+1) % 3]
-			r = s.get(url, headers = headers, proxies = proxyDict)
+			r = s.get(url, headers = headers)
 			
 			# query for getting target url
 			url = "https://www.cityrealty.com/nyc/search-for-sale/{}?min_price=100000&max_price=50000000000".format(row['full_address'])
@@ -106,7 +100,6 @@ def test_crawler():
 		except Exception as e:
 			print(e)
 		print("========================================")
-        
 			
 			
 	csvFile.close()
