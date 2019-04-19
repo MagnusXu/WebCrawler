@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Apr  5 16:20:24 2019
+
+@author: Magnus Xu
+"""
 import requests
 from bs4 import BeautifulSoup as bs 
 
@@ -37,3 +44,9 @@ def valid_ip(source):
 			continue
 	return valid
 
+if __name__ == "__main__":
+	# For the ip list auto-generation , use the API: http://www.xiguadaili.com/api
+	url = 'http://api3.xiguadaili.com/ip/?tid=559379427226664&num=2000&delay=3'
+	result = ip_list(url)
+	result = split_line(result)
+	valid = valid_ip(result)
