@@ -10,28 +10,38 @@ import requests
 import json
 import pandas as pd
 
-def pre_processing(dataset_path):
+def list_pre_processing(dataset_path):
     df = pd.read_csv(dataset_path)
     df.reset_index(drop = True)
     df = df.drop(['Unnamed: 0'],axis = 1)
     return df
 
-def feature_clean(df, column_name):
+def get_address_info(df, column_name):
+    """
     # This is used for spliting the address into street name, street number, unit number
     # e.g. For the address: 207 E 74th St, Unit PHA, we want to split it into three variables. 
     # street_number: 207
     # street_name: E 74th St
     # unit: PHA
+    """
     address = df[column_name]
     element = str(address).split(',')
+    if len(element) < 2:
+        return None
     full_street = element[0]
     unit = element[1]
     unit = unit.replace(' Unit ','')
     l = full_street.split(' ')
     street_number = l[0]
-    del l[0]
-    street_name = ' '.join(l)
-    return street_number, street_name, unit
+    if !street_number.isdigit():
+        return None
+    street_name = ' '.join(l[1:])
+    dic = {
+        'street_number':street_number,
+        'street_name':street_name,
+        'unit':unit
+    }
+    return dic
 
 def split_line(text):
     words = text.split(',')
@@ -42,8 +52,8 @@ def generate_url(df):
     # The API address is: https://api.cityofnewyork.us/geoclient/v1/doc#home
     # We are using the method 1.2.1-Address
     # Potential issue: The app_id & app_key might needs updates or set as seperate parameter in the input IF WHOEVER READ THIS CODE NEEDS A LIST OF DIFFERENT ID AND KEY IN THE FUTURE, but so far, I just use the same id and key.
-    street_number, street_name, unit = feature_clean(df, 'Address')
-    url = 'https://api.cityofnewyork.us/geoclient/v1/address.json?houseNumber=' + street_number + '&street=' + street_name + '&borough=manhattan&app_id=35348ee9&app_key=874bc0a8aaafe29bbe84abaeb78fd57d'
+    street_number, street_name, unit = get_address_info(df, 'Address')
+    url = 'https://api.cityofnewyork.us/geoclient/v1/address.json?houseNumber=' + {} + '&street=' + {} + '&borough=manhattan&app_id=35348ee9&app_key=874bc0a8aaafe29bbe84abaeb78fd57d'.format(street_number, street_name)
     return url
 
 def json_crawler(url):
@@ -52,15 +62,13 @@ def json_crawler(url):
         'connection': 'keep-alive'        
     }
     r = requests.get(url, headers = head)
-    rjson = r.json()
-    rjson = json.dumps(rjson)
-    json_dict = json.loads(rjson)
+    json_dict = json.loads(json.dumps(r.json()))
     return json_dict
 
-def generate_record(index, row, df, json_dict):
+def write_address_into_df(index, row, df, json_dict):
     bins = json_dict['address']['buildingIdentificationNumber']
     address = row['Address']
-    street_number, street_name, unit = feature_clean(row, 'Address')
+    street_number, street_name, unit = get_address_info(row, 'Address')
     df.loc[index, 'Address'] = address
     df.loc[index, 'Bin'] = bins
     df.loc[index, 'Street Number'] = street_number
@@ -72,25 +80,23 @@ def generate_record(index, row, df, json_dict):
     df.loc[index, 'SqFt'] = row['Sq Ft']
 
 def generate_crawl_result(dataset_path):
-    df = pre_processing(dataset_path)
+    df = list_pre_processing(dataset_path)
     count = 0
-    newData = pd.DataFrame()
+    new_data = pd.DataFrame()
     for index, row in df.iterrows():
         try:
-            street_number, street_name, unit = feature_clean(row, 'Address')
+            street_number, street_name, unit = get_address_info(row, 'Address')
             url = generate_url(row)
             json_dict = json_crawler(url)
             try:
-                generate_record(index, row, newData, json_dict)
+                write_address_into_df(index, row, newData, json_dict)
                 count += 1
             except Exception as errorInside:
                 print('The inner error is:', errorInside)
-                continue
         except Exception as errorOutside:
             print('The outer error is:', errorOutside)
-            continue
     print('Total success records is:', count)
-    return newData
+    return new_data
 
 def closing_preprocessing(dataset_path):
     df = pd.read_csv(dataset_path, low_memory = False)
@@ -130,9 +136,9 @@ def generate_merge_result(df, df2):
 
 
 if __name__ == "__main__":
-    listing_path = 'Penthouse_Listing_SS.csv'
+    listing_path = '/Desktop/Penthouse_Listing_SS.csv'
     crawl_df = generate_crawl_result(listing_path)
-    closing_path = 'SELE.csv'
+    closing_path = '/Desktop/SELE.csv'
     closing_df = closing_preprocessing(closing_path)
     result = generate_merge_result(closing_df, crawl_df)
     result.to_csv('file_path')
